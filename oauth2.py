@@ -14,38 +14,46 @@ def googleAuth():
 
 	redirect(url)
 
+def get_google_token(auth_code):
+	http = httplib2.Http()
+	data = dict(code=auth_code,
+		client_id="290910061097.apps.googleusercontent.com",
+		client_secret="38xorQwbOrcrPbFQG-3_NuHG",
+		redirect_uri="http://localhost:8080/oauth2callback",
+		grant_type="authorization_code")
+	url = "https://accounts.google.com/o/oauth2/token"
+	r_token, c_token = http.request(url, "POST", 
+		headers={"Content-Type":"application/x-www-form-urlencoded"},
+		body=urlencode(data))
+	if r_token['status'] == '200':
+		return simplejson.loads(c_token)['access_token']
+	else:
+		return None
+
+def get_google_data(token):
+	if not token:
+		return None
+	http = httplib2.Http()
+	url = "https://www.googleapis.com/plus/v1/people/me"
+	r_data, c_data = http.request(url, "GET", 
+		headers={"Authorization":("OAuth %s" % token)})
+	if r_data['status'] == '200':
+		return simplejson.loads(c_data)
+	else:
+		return None
+
 @route('/oauth2callback')
 def oauth2callback():
 	if request.query.code:
-		http = httplib2.Http()
-		data = dict(code=request.query.code,
-			client_id="290910061097.apps.googleusercontent.com",
-			client_secret="38xorQwbOrcrPbFQG-3_NuHG",
-			redirect_uri="http://localhost:8080/oauth2callback",
-			grant_type="authorization_code")
-		url = "https://accounts.google.com/o/oauth2/token"
-		headers={"Content-Type":"application/x-www-form-urlencoded"}
-		resp, content = http.request(url, "POST", headers=headers,
-			body=urlencode(data))
-		if resp['status'] == '200':
-			c = simplejson.loads(content)
-			access_token = c['access_token']
-			url = "https://www.googleapis.com/plus/v1/people/me"
-			auth_header="OAuth %s" % access_token
-			r, cnt = http.request(url, "GET", 
-				headers={"Authorization":auth_header})
-			if resp['status'] == '200':
-				user_data = simplejson.loads(cnt)
-				return "<img src='%s' />%s" % \
-					(user_data['image']['url'], user_data['displayName'])
-			return "h: %s<br />t: %s<br />r: %s<br />cnt: %s<br />c: %s" % \
-				(auth_header, access_token, r, cnt, c)
-		return "r: %s<br />c: %s" % (resp, content)
-	else:	
-		return "here!" 
-
-@route('/oauth2token')
-def oauth2token():
-	return "token time"
+		token = get_google_token(request.query.code)
+		if not token:
+			return "unable to get an access token!"
+		
+		user_data = get_google_data(token)
+		if user_data:
+			return "<img src='%s' />%s" % \
+				(user_data['image']['url'], user_data['displayName'])
+		return "An error occurred getting your user data"
+	return "Didn't get a code from your idp!"
 
 run(host='localhost', port=8080)
