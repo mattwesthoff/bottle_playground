@@ -3,6 +3,10 @@ import httplib2
 from urllib import urlencode
 import simplejson
 
+@route('/')
+def index():
+	return "<a href='/gauth'>Sign in using google</a>"
+
 @route('/gauth')
 def googleAuth():
 	client_id = "290910061097.apps.googleusercontent.com"
